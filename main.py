@@ -1,42 +1,63 @@
 #--------------------------------------Importamos librerias--------------------------------------------
-
 from tkinter import *
+from tkinter.font import Font
 import os
 import cv2
 import mediapipe as mp
 import serial
 
 #------------------------- Función para crear la carpeta de usuarios si no existe ------------------------
-
 def crear_carpeta_usuarios():
     if not os.path.exists("usuarios"):
         os.makedirs("usuarios")
 
-#------------------------ Función para almacenar el registro facial --------------------------------------
-def registro_facial(pantalla1):
+#------------------------ Función para entrenar un nuevo rostro --------------------------------------
+def entrenar_rostro(pantalla1):
     crear_carpeta_usuarios()
-    # Vamos a capturar el rostro
+    
+    mp_face_detection = mp.solutions.face_detection
+    mp_drawing = mp.solutions.drawing_utils
+
+    # Capturamos el rostro
     cap = cv2.VideoCapture(0)  # Elegimos la cámara con la que vamos a hacer la detección
-    while True:
-        ret, frame = cap.read()  # Leemos el video
+    with mp_face_detection.FaceDetection(min_detection_confidence=0.75) as rostros:
+        while True:
+            ret, frame = cap.read()  # Leemos el video
 
-        # Aplicamos el efecto espejo a los frames
-        frame = cv2.flip(frame, 1)
+            # Aplicamos el efecto espejo a los frames
+            frame = cv2.flip(frame, 1)
 
-        # Corrección de color
-        cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            # Guardamos una copia de la imagen original
+            frame_original = frame.copy()
 
-        cv2.imshow('Registro Facial', frame)  # Mostramos el video en pantalla
-        if cv2.waitKey(1) == 27:  # Cuando oprimamos "Escape" rompe el video
-            break
+            # Corrección de color
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    usuario_img = str(len(os.listdir("usuarios")) + 1)  # Nombre de usuario basado en la cantidad de archivos en la carpeta
-    cv2.imwrite(os.path.join("usuarios", usuario_img + ".jpg"), frame)  # Guardamos la última captura del video como imagen
+            # Detección de los rostros
+            resultado = rostros.process(rgb)
+
+            # Si se detectan rostros se inicializan las validaciones de acuerdo al entrenamiento
+            if resultado.detections is not None:
+                for detection in resultado.detections:
+                    mp_drawing.draw_detection(frame, detection)  # Dibujamos sobre el rostro detectado
+
+                    # Dibujamos el recuadro sobre el rostro detectado
+                    x, y, w, h = int(detection.location_data.relative_bounding_box.xmin * frame.shape[1]), \
+                                 int(detection.location_data.relative_bounding_box.ymin * frame.shape[0]), \
+                                 int(detection.location_data.relative_bounding_box.width * frame.shape[1]), \
+                                 int(detection.location_data.relative_bounding_box.height * frame.shape[0])
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+
+            cv2.imshow('Entrenamiento', frame)  # Mostramos el video en pantalla
+            if cv2.waitKey(1) == 27:  # Cuando oprimamos "Esc" rompe el video
+                break
+
+    usuario_img = str(len(os.listdir("usuarios")) + 1)  # Rostros de los usuarios entrenados almacenados en la carpeta
+    cv2.imwrite(os.path.join("usuarios", usuario_img + ".jpg"), frame_original)  # Guardamos la imagen original
     cap.release()  # Cerramos
     cv2.destroyAllWindows()
 
-    Label(pantalla1, text="Registro Facial Exitoso", fg="green", font=("Calibri", 11)).pack()
-
+    Label(pantalla1, text="Rostro entrenado con éxito", fg="green", font=("Montserrat", 11)).pack()
 
 #------------------------- Función para comparar los rostros ------------------------
 def comparar_rostros(rostro1, rostro2):
@@ -60,7 +81,7 @@ def comparar_rostros(rostro1, rostro2):
     # Ordenamos las coincidencias por distancia
     matches = sorted(matches, key=lambda x: x.distance)
 
-    # Check if keypoints1 is empty to avoid ZeroDivisionError
+    # Revisamos si el punto clave 1 no es nulo para evitar errores
     if len(keypoints1) == 0:
         return 0.0
 
@@ -71,13 +92,13 @@ def comparar_rostros(rostro1, rostro2):
 
 
 
-# Configuración del Puerto Serial
+# Configuración del Puerto Serial (COM5 es el puerto al que se conecta el microcontrolador)
 com = serial.Serial("COM5", 9600, write_timeout=10)
 d = 'd'
 i = 'i'
 p = 'p'
 
-# Controlar al servomotor
+#------------------------- Función con IA para detectar rostros y controlar al servomotor------------------------
 def control_servo():
 
     mp_face_detection = mp.solutions.face_detection
@@ -89,37 +110,46 @@ def control_servo():
         while True:
             ret, frame = cap.read()
 
+            # Aplicamos espejo a los frames
             frame = cv2.flip(frame, 1)
 
+            # Corrección de color
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
+            # Detección de los rostros
             resultado = rostros.process(rgb)
 
+            # Si se detectan rostros se inicializan las validaciones de acuerdo al entrenamiento
             if resultado.detections is not None:
                 for detection in resultado.detections:
-                    mp_drawing.draw_detection(frame, detection)
+                    mp_drawing.draw_detection(frame, detection) # Dibujamos sobre el rostro detectado
 
+                    # Verificamos que el sistema conozca al rostro detectado
                     for detection in resultado.detections:
-                        x, y, w, h = int(detection.location_data.relative_bounding_box.xmin * frame.shape[1]), int(detection.location_data.relative_bounding_box.ymin * frame.shape[0]), int(detection.location_data.relative_bounding_box.width * frame.shape[1]), int(detection.location_data.relative_bounding_box.height * frame.shape[0])
+                        x = int(detection.location_data.relative_bounding_box.xmin * frame.shape[1])
+                        y = int(detection.location_data.relative_bounding_box.ymin * frame.shape[0])
+                        w = int(detection.location_data.relative_bounding_box.width * frame.shape[1])
+                        h = int(detection.location_data.relative_bounding_box.height * frame.shape[0])
                         cara = frame[y:y+h, x:x+w]
                         if not cara.size == 0:
                             cara = cv2.resize(cara, (150, 200))
                         else:
                             print("Error: No se detectó ningún rostro.")
-                            continue  # Skip further processing for this frame
+                            continue
 
+                        # Obtenemos los rostros entrenados y validamos
                         for usuario_img in os.listdir("usuarios"):
                             img_path = os.path.join("usuarios", usuario_img)
                             rostro_reg = cv2.imread(img_path)
-                            similitud = comparar_rostros(cara, rostro_reg)
+                            similitud = comparar_rostros(cara, rostro_reg) # Comparamos rostros
                             if similitud >= 0.60:
-                                print("El usuario coincide con el número:", usuario_img.split('.')[0])
-                                enviar_senal(detection, frame)
+                                print("El usuario coincide con el número:", usuario_img.split('.')[0]) # Verificar coincidencias
+                                enviar_senal(detection, frame) # Si el rostro coincide con alguno entrenado, enviar señales al servomotor
                                 break
                         else:
-                            print("No se encontró coincidencia con ningún usuario registrado")
+                            print("No se encontró coincidencia con ningún usuario entrenado.")
 
-            cv2.imshow("Camara", frame)
+            cv2.imshow("Control de Servomotor", frame)
             t = cv2.waitKey(1)
             if t == 27:
                 break
@@ -128,66 +158,87 @@ def control_servo():
     cv2.destroyAllWindows()
 
 
-# Enviar señal al servomotor
+#------------------------- Función para enviar señales al servomotor ------------------------
 def enviar_senal(puntos, frame):
-    #Extraemos el ancho y el alto del frame
+    # Extraemos el ancho y el alto del frame
     al, an, c = frame.shape
 
-    #Extraemos el medio de la pantalla
+    # Extraemos el medio de la pantalla
     centro = int(an / 2)
 
-    #Extraemos las coordenadas X e Y min
+    # Extraemos las coordenadas X e Y min
     x = puntos.location_data.relative_bounding_box.xmin
     y = puntos.location_data.relative_bounding_box.ymin
 
-    #Extraemos el ancho y el alto
+    # Extraemos el ancho y el alto
     ancho = puntos.location_data.relative_bounding_box.width
     alto = puntos.location_data.relative_bounding_box.height
 
-    #Pasamos X e Y a coordenadas en pixeles
+    # Pasamos X e Y a coordenadas en pixeles
     x, y = int(x * an), int(y * al)
     print("X, Y: ", x, y)
 
-    #Pasamos el ancho y el alto a pixeles
+    # Pasamos el ancho y el alto a pixeles
     x1, y1 = int(ancho * an), int(alto * al)
 
-    #Extraemos el punto central
+    # Extraemos el punto central
     cx = (x + (x + x1)) // 2
     cy = (y + (y + y1)) // 2
-    #print("Centro: ", cx, cy)
+    # print("Centro: ", cx, cy)
 
-    #Mostrar un punto en el centro
+    # Mostrar un punto en el centro
     cv2.circle(frame, (cx, cy), 3, (0, 0, 255), cv2.FILLED)
     cv2.line(frame, (cx, 0), (cx, 480), (0, 0, 255), 2)
 
-    #Condiciones para mover el servo
+    # Condicionales para mover el servo hacia cierta dirección
     if cx < centro - 50:
-        #Movemos hacia la izquierda
+        # Movemos hacia la izquierda
         print("Izquierda")
-        com.write(i.encode('ascii'))
+        com.write(i.encode('ascii')) # Puerto Serial establecido
     elif cx > centro + 50:
-        #Movemos hacia la derecha
+        # Movemos hacia la derecha
         print("Derecha")
         com.write(d.encode('ascii'))
     elif cx == centro:
-        #Paramos el servo
+        # Detenemos el servo
         print("Parar")
         com.write(p.encode('ascii'))
 
 #------------------------- Función de la pantalla principal ------------------------------------------------
-
 def pantalla_principal():
     global pantalla  # Globalizamos la variable para usarla en otras funciones
     pantalla = Tk()
-    pantalla.geometry("300x250")  # Asignamos el tamaño de la ventana
-    pantalla.title("Visión por Computadora")  # Asignamos el título de la pantalla
-    Label(text="Login Inteligente", bg="gray", width="300", height="2", font=("Verdana", 13)).pack()  # Asignamos características de la ventana
+    pantalla.title("Sistema de Reconocimiento Facial")  # Asignamos el título de la pantalla
 
-     # Creamos los botones
-    Button(text="Iniciar Sesión", height="2", width="30", command=control_servo).pack() 
-    Button(text="Registrar Usuario", height="2", width="30", command=lambda: registro_facial(pantalla)).pack()
+    montserrat_font = Font(family="Montserrat", size=12) # Fuente a utilizar
     
+    # Obtenemos las dimensiones de la pantalla
+    screen_width = pantalla.winfo_screenwidth()
+    screen_height = pantalla.winfo_screenheight()
+    
+    # Calculamos las coordenadas para centrar la ventana en la pantalla
+    x_position = (screen_width - 300) // 2
+    y_position = (screen_height - 250) // 2
+    
+    # Configuramos la geometría de la ventana y la posicionamos en el centro de la pantalla
+    pantalla.geometry("400x200+{}+{}".format(x_position, y_position))
+    
+     # Crear un marco para contener los elementos
+    frame = Frame(pantalla, bg="gray", width=300, height=250)
+    frame.pack(expand=True, fill="both")
+    
+    # Etiqueta para el título
+    Label(frame, text="Control de Servomotor con IA", bg="gray", fg="white", font=montserrat_font, pady=10).pack()
+    
+    # Botón para controlar el servo
+    Button(frame, text="Controlar Servo", height=2, width=30, font=montserrat_font, command=control_servo).pack(pady=5)
+    
+    # Botón para entrenar
+    Button(frame, text="Entrenar", height=2, width=30, font=montserrat_font, command=lambda: entrenar_rostro(pantalla)).pack(pady=5)
+    
+    # Centrar la ventana en la pantalla
     pantalla.mainloop()
 
 # Llamamos a la función principal para iniciar la pantalla
 pantalla_principal()
+
