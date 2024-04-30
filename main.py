@@ -100,9 +100,7 @@ p = 'p'
 
 #------------------------- Función con IA para detectar rostros y controlar al servomotor------------------------
 def control_servo():
-
     mp_face_detection = mp.solutions.face_detection
-    mp_drawing = mp.solutions.drawing_utils
 
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
@@ -121,33 +119,49 @@ def control_servo():
 
             # Si se detectan rostros se inicializan las validaciones de acuerdo al entrenamiento
             if resultado.detections is not None:
-                for detection in resultado.detections:
-                    mp_drawing.draw_detection(frame, detection) # Dibujamos sobre el rostro detectado
+                # Tomamos solo el primer rostro detectado
+                detection = resultado.detections[0]
 
-                    # Verificamos que el sistema conozca al rostro detectado
-                    for detection in resultado.detections:
-                        x = int(detection.location_data.relative_bounding_box.xmin * frame.shape[1])
-                        y = int(detection.location_data.relative_bounding_box.ymin * frame.shape[0])
-                        w = int(detection.location_data.relative_bounding_box.width * frame.shape[1])
-                        h = int(detection.location_data.relative_bounding_box.height * frame.shape[0])
-                        cara = frame[y:y+h, x:x+w]
-                        if not cara.size == 0:
-                            cara = cv2.resize(cara, (150, 200))
-                        else:
-                            print("Error: No se detectó ningún rostro.")
-                            continue
+                # Verificamos que el sistema conozca al rostro detectado
+                x = int(detection.location_data.relative_bounding_box.xmin * frame.shape[1])
+                y = int(detection.location_data.relative_bounding_box.ymin * frame.shape[0])
+                w = int(detection.location_data.relative_bounding_box.width * frame.shape[1])
+                h = int(detection.location_data.relative_bounding_box.height * frame.shape[0])
+                cara = frame[y:y+h, x:x+w]
+                if not cara.size == 0:
+                    cara = cv2.resize(cara, (150, 200))
+                else:
+                    print("Error: No se detectó ningún rostro.")
+                    continue
 
-                        # Obtenemos los rostros entrenados y validamos
-                        for usuario_img in os.listdir("usuarios"):
-                            img_path = os.path.join("usuarios", usuario_img)
-                            rostro_reg = cv2.imread(img_path)
-                            similitud = comparar_rostros(cara, rostro_reg) # Comparamos rostros
-                            if similitud >= 0.60:
-                                print("El usuario coincide con el número:", usuario_img.split('.')[0]) # Verificar coincidencias
-                                enviar_senal(detection, frame) # Si el rostro coincide con alguno entrenado, enviar señales al servomotor
-                                break
-                        else:
-                            print("No se encontró coincidencia con ningún usuario entrenado.")
+                # Calculamos las coordenadas del centro de la frente del rostro
+                punto_x = x + w // 2  # Coordenada x del centro del rostro
+                punto_y = y + h // 8  # Coordenada y del centro del rostro
+
+                # Dibujamos un círculo rojo sobre la frente
+                cv2.circle(frame, (punto_x, punto_y), int(min(w, h) / 2), (0, 0, 255), 2)
+
+                # # Dibujamos un punto en el centro de la frente
+                cv2.circle(frame, (punto_x, punto_y), 8, (0, 255, 0), -1)
+
+                # # Dibujamos una línea horizontal
+                cv2.line(frame, (0, punto_y), (frame.shape[1], punto_y), (0, 0, 0), 2)
+
+                # # Dibujamos una línea vertical 
+                cv2.line(frame, (punto_x, 0), (punto_x, frame.shape[0]), (0, 0, 0), 2)
+
+                # Obtenemos los rostros entrenados y validamos
+                for usuario_img in os.listdir("usuarios"):
+                    img_path = os.path.join("usuarios", usuario_img)
+                    rostro_reg = cv2.imread(img_path)
+                    similitud = comparar_rostros(cara, rostro_reg) # Comparamos rostros
+                    if similitud >= 0.75:
+                        print("El usuario coincide con el número:", usuario_img.split('.')[0]) # Verificar coincidencias
+                        print(similitud)
+                        enviar_senal(detection, frame) # Si el rostro coincide con alguno entrenado, enviar señales al servomotor
+                        break
+                else:
+                    print("No se encontró coincidencia con ningún usuario entrenado.")
 
             cv2.imshow("Control de Servomotor", frame)
             t = cv2.waitKey(1)
