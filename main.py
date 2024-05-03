@@ -7,13 +7,13 @@ import mediapipe as mp
 import serial
 import face_recognition
 
-# Configuración del Puerto Serial (COM5 es el puerto al que se conecta el microcontrolador) y Variables
-com = serial.Serial("COM5", 9600, write_timeout=10)
+# Configuración del Puerto Serial (COM es el puerto al que se conecta el microcontrolador) y Variables
+com = serial.Serial("COM3", 9600, write_timeout=10)
 d = 'd'
 i = 'i'
 p = 'p'
 
-numCam = 0 # Número de la cámara con la que ejecutaremos el programa
+numCam = 1 # Número de la cámara con la que ejecutaremos el programa
 
 #------------------------- Funciones para crear las carpetas si no existen ------------------------
 def crear_carpeta_usuarios():
