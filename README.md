@@ -9,7 +9,7 @@ Ever Corazón 202042236
 Olsend Luna 202040897
 
 
-**Pasos para Instalar**
+**Pasos para Instalar** (Se recomienda utilizar la versión 3.8.10 de Python)
 
 1. Crear una carpeta llamada deteccion (puede ser cualquier nomnbre)
 2. Abrir el cmd con de esa carpeta
