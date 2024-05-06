@@ -11,6 +11,13 @@ Olsend Luna 202040897
 
 **Pasos para Instalar**
 
+1. Crear una carpeta llamada deteccion (puede ser cualquier nomnbre)
+2. Abrir el cmd con de esa carpeta
+
+Estando ubicados en el cmd de la carpeta, ejecutar los siguientes comandos
+```
+git clone https://github.com/EverCR1/Deteccion-de-Rostros-IA.git
+```
 
 Crear entorno
 ```
