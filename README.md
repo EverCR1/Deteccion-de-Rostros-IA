@@ -8,3 +8,17 @@ Ever Corazón 202042236
 
 Olsend Luna 202040897
 
+
+**Pasos para Instalar**
+
+'''
+python -m venv venv
+'''
+
+'''
+venv\scripts\activate
+'''
+
+'''
+pip install 
+'''
