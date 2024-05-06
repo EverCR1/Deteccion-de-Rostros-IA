@@ -11,12 +11,17 @@ Olsend Luna 202040897
 
 **Pasos para Instalar** (Se recomienda utilizar la versión 3.8.10 de Python)
 
-1. Crear una carpeta llamada deteccion (puede ser cualquier nomnbre)
+1. Crear una carpeta llamada deteccion (puede ser cualquier nombre)
 2. Abrir el cmd con de esa carpeta
 
 Estando ubicados en el cmd de la carpeta, ejecutar los siguientes comandos
 ```
 git clone https://github.com/EverCR1/Deteccion-de-Rostros-IA.git
+```
+
+Ubicarnos en la carpeta raíz del proyecto
+```
+cd Deteccion-de-Rostros-IA
 ```
 
 Crear entorno
